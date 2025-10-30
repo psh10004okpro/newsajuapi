@@ -10,7 +10,7 @@ import os
 from korean_lunar_calendar import KoreanLunarCalendar
 
 from src.models.saju import (
-    BirthInfo, SajuPillar, SajuResult, TenGods, FiveElements, DaeunPeriod
+    BirthInfo, SajuPillar, SajuResult, TenGods, FiveElements, DaeunPeriod, SaeunYear
 )
 
 
@@ -110,17 +110,27 @@ class SajuCalculator:
         self.solar_terms = self._load_solar_terms()
 
     def _load_solar_terms(self) -> Dict:
-        """24절기 데이터 로드"""
+        """24절기 데이터 로드 (1900-2050년 전체)"""
+        # 먼저 전체 데이터 파일 시도
         data_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
-            "data", "solar_terms_2024_2025.json"
+            "data", "solar_terms_1900_2050.json"
         )
         try:
             with open(data_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
-            # 데이터 파일이 없으면 빈 딕셔너리 반환
-            return {"solar_terms": {}}
+            # 전체 데이터 파일이 없으면 샘플 데이터 사용
+            fallback_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "data", "solar_terms_2024_2025.json"
+            )
+            try:
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except FileNotFoundError:
+                # 데이터 파일이 없으면 빈 딕셔너리 반환
+                return {"solar_terms": {}}
 
     def calculate(self, birth_info: BirthInfo) -> SajuResult:
         """
@@ -170,7 +180,13 @@ class SajuCalculator:
             birth_info, year_pillar, month_pillar
         )
 
-        # 9. 음력 정보 계산
+        # 9. 세운 계산 (현재 년도 기준 전후 5년)
+        current_year = datetime.now().year
+        saeun_years = self._calculate_saeun(
+            birth_info, current_year - 2, current_year + 5
+        )
+
+        # 10. 음력 정보 계산
         lunar_date = self._calculate_lunar_date(
             birth_info.year, birth_info.month, birth_info.day
         )
@@ -185,6 +201,7 @@ class SajuCalculator:
             ten_gods=ten_gods,
             five_elements=five_elements,
             daeun_periods=daeun_periods,
+            saeun_years=saeun_years,
             lunar_date=lunar_date
         )
 
@@ -429,6 +446,38 @@ class SajuCalculator:
             ))
 
         return daeun_list
+
+    def _calculate_saeun(
+        self, birth_info: BirthInfo, start_year: int, end_year: int
+    ) -> List[SaeunYear]:
+        """
+        세운(歲運) 계산
+        지정된 년도 범위의 세운을 계산
+
+        Args:
+            birth_info: 생년월일시 정보
+            start_year: 시작 년도
+            end_year: 종료 년도
+
+        Returns:
+            세운 목록
+        """
+        saeun_list = []
+
+        for year in range(start_year, end_year + 1):
+            # 해당 년도의 년주 계산
+            year_pillar = self._calculate_year_pillar(year, 2, 4)  # 입춘 기준
+
+            # 해당 년도의 나이 계산 (만 나이)
+            age = year - birth_info.year
+
+            saeun_list.append(SaeunYear(
+                year=year,
+                year_pillar=year_pillar,
+                age=age
+            ))
+
+        return saeun_list
 
     def _calculate_lunar_date(self, year: int, month: int, day: int) -> Dict:
         """양력을 음력으로 변환"""

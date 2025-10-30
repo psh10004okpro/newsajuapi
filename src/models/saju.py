@@ -84,6 +84,17 @@ class DaeunPeriod(BaseModel):
         return f"{self.heavenly_stem}{self.earthly_branch} ({self.start_age}-{self.end_age}세)"
 
 
+class SaeunYear(BaseModel):
+    """세운(歲運) - 특정 년도의 운세"""
+    year: int = Field(..., description="해당 년도")
+    year_pillar: SajuPillar = Field(..., description="년도의 천간지지")
+    age: int = Field(..., description="해당 년도의 나이")
+    description: Optional[str] = Field(None, description="세운 설명")
+
+    def __str__(self):
+        return f"{self.year}년 ({self.age}세) {self.year_pillar}"
+
+
 class SajuResult(BaseModel):
     """사주 계산 결과"""
     birth_info: BirthInfo = Field(..., description="입력된 생년월일시")
@@ -103,6 +114,9 @@ class SajuResult(BaseModel):
 
     # 대운
     daeun_periods: List[DaeunPeriod] = Field(default_factory=list, description="대운 목록")
+
+    # 세운 (연도별 운세)
+    saeun_years: List[SaeunYear] = Field(default_factory=list, description="세운 목록 (연도별)")
 
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")

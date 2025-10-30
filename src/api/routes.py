@@ -16,7 +16,13 @@ from src.models.saju import (
     FullAnalysisRequest,
     FullAnalysisResponse
 )
+from src.models.compatibility import (
+    CompatibilityRequest,
+    CompatibilityAnalysis,
+    CompatibilityFullResponse
+)
 from src.calculators.saju_calculator import SajuCalculator
+from src.calculators.compatibility_calculator import CompatibilityCalculator
 from src.services.interpretation_service import InterpretationService
 from src.services.cache_service import CacheService
 
@@ -25,6 +31,7 @@ router = APIRouter()
 
 # 서비스 인스턴스 (싱글톤처럼 사용)
 _saju_calculator = None
+_compatibility_calculator = None
 _interpretation_service = None
 _cache_service = None
 
@@ -35,6 +42,14 @@ def get_saju_calculator() -> SajuCalculator:
     if _saju_calculator is None:
         _saju_calculator = SajuCalculator()
     return _saju_calculator
+
+
+def get_compatibility_calculator() -> CompatibilityCalculator:
+    """궁합 계산기 인스턴스 가져오기"""
+    global _compatibility_calculator
+    if _compatibility_calculator is None:
+        _compatibility_calculator = CompatibilityCalculator()
+    return _compatibility_calculator
 
 
 def get_interpretation_service() -> InterpretationService:
@@ -245,3 +260,85 @@ async def clear_cache(
             raise HTTPException(status_code=500, detail="캐시 삭제 실패")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"캐시 삭제 오류: {str(e)}")
+
+
+@router.post("/compatibility", response_model=CompatibilityFullResponse)
+async def calculate_compatibility(
+    request: CompatibilityRequest,
+    saju_calculator: SajuCalculator = Depends(get_saju_calculator),
+    compatibility_calculator: CompatibilityCalculator = Depends(get_compatibility_calculator),
+    interpretation_service: InterpretationService = Depends(get_interpretation_service)
+):
+    """
+    사주 궁합 분석 엔드포인트
+
+    두 사람의 생년월일시를 입력받아 사주 궁합을 분석합니다.
+
+    **Parameters:**
+    - person1_birth: 첫 번째 사람의 생년월일시
+    - person2_birth: 두 번째 사람의 생년월일시
+    - detail_level: 상세도 (기본값 normal)
+
+    **Returns:**
+    - 궁합 분석 결과 + AI 해석
+    """
+    try:
+        # 1. 두 사람의 사주 계산
+        person1_birth_info = BirthInfo(**request.person1_birth)
+        person2_birth_info = BirthInfo(**request.person2_birth)
+
+        saju1 = saju_calculator.calculate(person1_birth_info)
+        saju2 = saju_calculator.calculate(person2_birth_info)
+
+        # 2. 궁합 분석
+        compatibility_analysis = compatibility_calculator.calculate_compatibility(
+            saju1, saju2
+        )
+
+        # 3. AI 해석 생성
+        compatibility_text = f"""
+## 사주 궁합 분석 결과
+
+**종합 궁합 점수**: {compatibility_analysis.overall_score}점
+
+**세부 점수**:
+"""
+        for score in compatibility_analysis.detailed_scores:
+            compatibility_text += f"- {score.category}: {score.score}점 ({score.description})\n"
+
+        compatibility_text += f"\n**긍정적인 면**:\n"
+        for strength in compatibility_analysis.strengths:
+            compatibility_text += f"- {strength}\n"
+
+        compatibility_text += f"\n**주의할 점**:\n"
+        for weakness in compatibility_analysis.weaknesses:
+            compatibility_text += f"- {weakness}\n"
+
+        # AI가 더 자세한 해석 생성
+        interpretation_prompt = f"""
+{compatibility_text}
+
+위 궁합 분석 결과를 바탕으로, 두 사람의 관계에 대해 자세히 설명해주세요.
+구체적인 조언과 함께 관계를 발전시킬 수 있는 방법을 제시해주세요.
+"""
+
+        # InterpretationRequest 생성 (첫 번째 사람 사주 기준)
+        from src.models.saju import InterpretationRequest
+
+        interp_request = InterpretationRequest(
+            saju_result=saju1,
+            question=interpretation_prompt,
+            detail_level=request.detail_level,
+            tone="friendly"
+        )
+
+        interpretation_response = await interpretation_service.interpret(interp_request)
+
+        return CompatibilityFullResponse(
+            compatibility_analysis=compatibility_analysis,
+            interpretation=interpretation_response.interpretation,
+            tokens_used=interpretation_response.tokens_used
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"궁합 분석 오류: {str(e)}")
