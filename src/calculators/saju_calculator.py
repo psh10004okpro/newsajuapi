@@ -328,10 +328,25 @@ class SajuCalculator:
             earthly_branch=self.EARTHLY_BRANCHES[hour_branch_index]
         )
 
-    def _is_same_yin_yang(self, stem1: str, stem2: str) -> bool:
-        """두 천간의 음양이 같은지 판단"""
-        index1 = self.HEAVENLY_STEMS.index(stem1)
-        index2 = self.HEAVENLY_STEMS.index(stem2)
+    def _is_same_yin_yang(self, item1: str, item2: str) -> bool:
+        """두 천간 또는 지지의 음양이 같은지 판단"""
+        # 천간 또는 지지 리스트에서 인덱스 찾기
+        try:
+            index1 = self.HEAVENLY_STEMS.index(item1)
+        except ValueError:
+            try:
+                index1 = self.EARTHLY_BRANCHES.index(item1)
+            except ValueError:
+                return False
+
+        try:
+            index2 = self.HEAVENLY_STEMS.index(item2)
+        except ValueError:
+            try:
+                index2 = self.EARTHLY_BRANCHES.index(item2)
+            except ValueError:
+                return False
+
         # 짝수 인덱스는 양(陽), 홀수 인덱스는 음(陰)
         return (index1 % 2) == (index2 % 2)
 
