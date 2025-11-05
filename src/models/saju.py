@@ -139,6 +139,11 @@ class SajuResult(BaseModel):
     advanced_yongsin: Optional[Dict] = Field(None, description="고급 용신 분석 (통관/병약/전왕)")
     precise_daeun_start: Optional[Dict] = Field(None, description="정밀 대운 기점 계산")
 
+    # Phase 3 정확도 개선 (v2.2)
+    precise_hour_branch: Optional[Dict] = Field(None, description="정밀 시지 계산 (경도 보정)")
+    additional_spirits: Optional[List[Dict]] = Field(None, description="추가 신살 (학당/문창/금여/월덕/천덕/고란/홍염)")
+    sangsin_analysis: Optional[Dict] = Field(None, description="상신(相神) 분석")
+
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")
     solar_terms: Optional[Dict] = Field(None, description="절기 정보")

@@ -31,6 +31,10 @@ from src.calculators.precise_solar_terms import get_precise_solar_term_calculato
 from src.calculators.advanced_gyeokguk_analyzer import AdvancedGyeokgukAnalyzer
 from src.calculators.advanced_yongsin_analyzer import AdvancedYongsinAnalyzer
 from src.calculators.precise_daeun_calculator import get_precise_daeun_calculator
+# Phase 3 정확도 개선
+from src.calculators.precise_time_calculator import get_precise_time_calculator
+from src.data.additional_divine_spirits import check_additional_divine_spirits
+from src.calculators.sangsin_analyzer import get_sangsin_analyzer
 
 
 class SajuCalculator:
@@ -377,6 +381,65 @@ class SajuCalculator:
             birth_info.gender or "male"
         )
 
+        # ========== Phase 3 정확도 개선 (v2.2) ==========
+
+        # 26. 정밀 시지 계산 (경도 보정)
+        precise_time_calc = get_precise_time_calculator()
+        precise_hour_branch = precise_time_calc.calculate_precise_hour_branch(
+            birth_datetime,
+            city="서울",  # 기본값, 추후 birth_info에 city 추가 가능
+            longitude=None
+        )
+
+        # 27. 추가 신살 확인
+        day_pillar_str = f"{day_pillar.heavenly_stem}{day_pillar.earthly_branch}"
+        additional_spirits = check_additional_divine_spirits(
+            year_pillar.heavenly_stem,
+            month_pillar.heavenly_stem,
+            day_pillar.heavenly_stem,
+            hour_pillar.heavenly_stem,
+            year_pillar.earthly_branch,
+            month_pillar.earthly_branch,
+            day_pillar.earthly_branch,
+            hour_pillar.earthly_branch,
+            birth_info.month,
+            day_pillar_str
+        )
+
+        # 28. 상신 분석
+        sangsin_analyzer = get_sangsin_analyzer(self.ELEMENT_MAP)
+
+        # advanced_yongsin 정보 사용
+        primary_yongsin_element = advanced_yongsin.get("primary_yongsin", {}).get("element", "목")
+        gisin_element = advanced_yongsin.get("gisin", {}).get("element", "금")
+
+        # 상신 분석 수행
+        sangsin_analysis = sangsin_analyzer.analyze_sangsin(
+            primary_yongsin_element,
+            gisin_element,
+            {
+                "wood": five_elements.wood,
+                "fire": five_elements.fire,
+                "earth": five_elements.earth,
+                "metal": five_elements.metal,
+                "water": five_elements.water
+            },
+            {
+                "년주": self._convert_pillar_to_ten_gods(year_pillar, day_master),
+                "월주": self._convert_pillar_to_ten_gods(month_pillar, day_master),
+                "일주": self._convert_pillar_to_ten_gods(day_pillar, day_master),
+                "시주": self._convert_pillar_to_ten_gods(hour_pillar, day_master)
+            }
+        )
+
+        # 사주 내 상신 위치 분석
+        sangsin_in_saju = sangsin_analyzer.analyze_sangsin_in_saju(
+            advanced_yongsin,
+            [year_pillar, month_pillar, day_pillar, hour_pillar],
+            self.ELEMENT_MAP
+        )
+        sangsin_analysis["사주내_상신"] = sangsin_in_saju
+
         return SajuResult(
             birth_info=birth_info,
             year_pillar=year_pillar,
@@ -405,7 +468,11 @@ class SajuCalculator:
             jongguk_type=jongguk_type,
             gyeokguk_paguk=gyeokguk_paguk,
             advanced_yongsin=advanced_yongsin,
-            precise_daeun_start=precise_daeun_start
+            precise_daeun_start=precise_daeun_start,
+            # Phase 3 정확도 개선
+            precise_hour_branch=precise_hour_branch,
+            additional_spirits=additional_spirits,
+            sangsin_analysis=sangsin_analysis
         )
 
     def _calculate_year_pillar(self, year: int, month: int, day: int) -> SajuPillar:
