@@ -16,6 +16,9 @@ from src.data.twelve_spirits import get_twelve_spirit
 from src.data.divine_spirits import check_divine_spirits
 from src.data.sixty_jiazi import get_jiazi_info
 from src.data.harmony_conflict import check_harmony_conflict
+from src.data.gongmang import check_gongmang_in_saju
+from src.calculators.gyeokguk_analyzer import GyeokgukAnalyzer
+from src.calculators.yongsin_analyzer import YongsinAnalyzer
 
 
 class SajuCalculator:
@@ -217,6 +220,42 @@ class SajuCalculator:
             [year_pillar, month_pillar, day_pillar, hour_pillar]
         )
 
+        # 15. 공망 분석
+        gongmang = check_gongmang_in_saju(
+            str(day_pillar),
+            year_pillar.earthly_branch,
+            month_pillar.earthly_branch,
+            day_pillar.earthly_branch,
+            hour_pillar.earthly_branch
+        )
+
+        # 16. 격국 분석
+        gyeokguk_analyzer = GyeokgukAnalyzer(self)
+        gyeokguk = gyeokguk_analyzer.analyze_gyeokguk(
+            day_master,
+            month_pillar.earthly_branch,
+            year_pillar.heavenly_stem,
+            month_pillar.heavenly_stem,
+            day_master,
+            hour_pillar.heavenly_stem,
+            ten_gods
+        )
+
+        # 17. 용신 분석
+        yongsin_analyzer = YongsinAnalyzer(self.ELEMENT_MAP)
+        yongsin = yongsin_analyzer.analyze_yongsin(
+            day_master,
+            {
+                "wood": five_elements.wood,
+                "fire": five_elements.fire,
+                "earth": five_elements.earth,
+                "metal": five_elements.metal,
+                "water": five_elements.water
+            },
+            month_pillar.earthly_branch,
+            birth_info.month
+        )
+
         return SajuResult(
             birth_info=birth_info,
             year_pillar=year_pillar,
@@ -232,7 +271,10 @@ class SajuCalculator:
             twelve_spirits=twelve_spirits,
             divine_spirits=divine_spirits,
             jiazi_info=jiazi_info,
-            harmony_conflict=harmony_conflict
+            harmony_conflict=harmony_conflict,
+            gongmang=gongmang,
+            gyeokguk=gyeokguk,
+            yongsin=yongsin
         )
 
     def _calculate_year_pillar(self, year: int, month: int, day: int) -> SajuPillar:

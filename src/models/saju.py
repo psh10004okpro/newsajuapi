@@ -123,6 +123,9 @@ class SajuResult(BaseModel):
     divine_spirits: Optional[List[Dict]] = Field(None, description="신살 (역마, 도화, 귀인 등)")
     jiazi_info: Optional[Dict] = Field(None, description="60갑자 일주 특성")
     harmony_conflict: Optional[Dict] = Field(None, description="합충형해파 관계")
+    gongmang: Optional[Dict] = Field(None, description="공망 (空亡) 분석")
+    gyeokguk: Optional[Dict] = Field(None, description="격국 (格局) 판단")
+    yongsin: Optional[Dict] = Field(None, description="용신 (用神) 분석")
 
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")
