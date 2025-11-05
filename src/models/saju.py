@@ -118,6 +118,12 @@ class SajuResult(BaseModel):
     # 세운 (연도별 운세)
     saeun_years: List[SaeunYear] = Field(default_factory=list, description="세운 목록 (연도별)")
 
+    # 명리학 고급 분석 데이터
+    twelve_spirits: Optional[Dict[str, Dict]] = Field(None, description="십이운성 (각 기둥별)")
+    divine_spirits: Optional[List[Dict]] = Field(None, description="신살 (역마, 도화, 귀인 등)")
+    jiazi_info: Optional[Dict] = Field(None, description="60갑자 일주 특성")
+    harmony_conflict: Optional[Dict] = Field(None, description="합충형해파 관계")
+
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")
     solar_terms: Optional[Dict] = Field(None, description="절기 정보")

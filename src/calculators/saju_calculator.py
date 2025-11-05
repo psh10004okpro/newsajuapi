@@ -12,6 +12,10 @@ from korean_lunar_calendar import KoreanLunarCalendar
 from src.models.saju import (
     BirthInfo, SajuPillar, SajuResult, TenGods, FiveElements, DaeunPeriod, SaeunYear
 )
+from src.data.twelve_spirits import get_twelve_spirit
+from src.data.divine_spirits import check_divine_spirits
+from src.data.sixty_jiazi import get_jiazi_info
+from src.data.harmony_conflict import check_harmony_conflict
 
 
 class SajuCalculator:
@@ -191,6 +195,28 @@ class SajuCalculator:
             birth_info.year, birth_info.month, birth_info.day
         )
 
+        # 11. 십이운성 계산 (각 기둥별)
+        twelve_spirits = self._calculate_twelve_spirits(
+            day_master, year_pillar, month_pillar, day_pillar, hour_pillar
+        )
+
+        # 12. 신살 확인
+        divine_spirits = check_divine_spirits(
+            year_pillar.heavenly_stem,
+            year_pillar.earthly_branch,
+            day_master,
+            day_pillar.earthly_branch,
+            [year_pillar, month_pillar, day_pillar, hour_pillar]
+        )
+
+        # 13. 60갑자 일주 특성
+        jiazi_info = get_jiazi_info(str(day_pillar))
+
+        # 14. 합충형해파 관계
+        harmony_conflict = check_harmony_conflict(
+            [year_pillar, month_pillar, day_pillar, hour_pillar]
+        )
+
         return SajuResult(
             birth_info=birth_info,
             year_pillar=year_pillar,
@@ -202,7 +228,11 @@ class SajuCalculator:
             five_elements=five_elements,
             daeun_periods=daeun_periods,
             saeun_years=saeun_years,
-            lunar_date=lunar_date
+            lunar_date=lunar_date,
+            twelve_spirits=twelve_spirits,
+            divine_spirits=divine_spirits,
+            jiazi_info=jiazi_info,
+            harmony_conflict=harmony_conflict
         )
 
     def _calculate_year_pillar(self, year: int, month: int, day: int) -> SajuPillar:
@@ -512,3 +542,48 @@ class SajuCalculator:
             return {
                 "error": f"음력 변환 실패: {str(e)}"
             }
+
+    def _calculate_twelve_spirits(
+        self,
+        day_master: str,
+        year_pillar: SajuPillar,
+        month_pillar: SajuPillar,
+        day_pillar: SajuPillar,
+        hour_pillar: SajuPillar
+    ) -> Dict[str, Dict]:
+        """
+        십이운성 계산 (각 기둥별)
+
+        Args:
+            day_master: 일간
+            year_pillar: 년주
+            month_pillar: 월주
+            day_pillar: 일주
+            hour_pillar: 시주
+
+        Returns:
+            각 기둥별 십이운성 정보
+        """
+        result = {}
+
+        # 년지의 십이운성
+        year_spirit = get_twelve_spirit(day_master, year_pillar.earthly_branch)
+        if year_spirit:
+            result["년지"] = year_spirit
+
+        # 월지의 십이운성
+        month_spirit = get_twelve_spirit(day_master, month_pillar.earthly_branch)
+        if month_spirit:
+            result["월지"] = month_spirit
+
+        # 일지의 십이운성
+        day_spirit = get_twelve_spirit(day_master, day_pillar.earthly_branch)
+        if day_spirit:
+            result["일지"] = day_spirit
+
+        # 시지의 십이운성
+        hour_spirit = get_twelve_spirit(day_master, hour_pillar.earthly_branch)
+        if hour_spirit:
+            result["시지"] = hour_spirit
+
+        return result
