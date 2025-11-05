@@ -27,6 +27,10 @@ from src.calculators.gyeokguk_analyzer import GyeokgukAnalyzer
 from src.calculators.yongsin_analyzer import YongsinAnalyzer
 from src.calculators.enhanced_calculator import EnhancedSajuCalculator
 from src.calculators.precise_solar_terms import get_precise_solar_term_calculator
+# Phase 2 정확도 개선
+from src.calculators.advanced_gyeokguk_analyzer import AdvancedGyeokgukAnalyzer
+from src.calculators.advanced_yongsin_analyzer import AdvancedYongsinAnalyzer
+from src.calculators.precise_daeun_calculator import get_precise_daeun_calculator
 
 
 class SajuCalculator:
@@ -287,6 +291,92 @@ class SajuCalculator:
             self.ELEMENT_MAP
         )
 
+        # ========== Phase 2 정확도 개선 (v2.1) ==========
+
+        # 21. 특수 격국 분석
+        advanced_gyeokguk_analyzer = AdvancedGyeokgukAnalyzer(self.ELEMENT_MAP)
+        special_gyeokguk = advanced_gyeokguk_analyzer.analyze_special_gyeokguk(
+            day_master,
+            month_pillar.earthly_branch,
+            [year_pillar, month_pillar, day_pillar, hour_pillar],
+            {
+                "wood": five_elements.wood,
+                "fire": five_elements.fire,
+                "earth": five_elements.earth,
+                "metal": five_elements.metal,
+                "water": five_elements.water
+            },
+            birth_info.month
+        )
+
+        # 22. 종격 세부 유형 분석
+        element_strength_score = element_strength_analysis.get("강도점수", 100)
+        jongguk_type = advanced_gyeokguk_analyzer.analyze_jongguk_type(
+            day_master,
+            {
+                "년주": self._convert_pillar_to_ten_gods(year_pillar, day_master),
+                "월주": self._convert_pillar_to_ten_gods(month_pillar, day_master),
+                "일주": self._convert_pillar_to_ten_gods(day_pillar, day_master),
+                "시주": self._convert_pillar_to_ten_gods(hour_pillar, day_master)
+            },
+            {
+                "wood": five_elements.wood,
+                "fire": five_elements.fire,
+                "earth": five_elements.earth,
+                "metal": five_elements.metal,
+                "water": five_elements.water
+            },
+            element_strength_score
+        )
+
+        # 23. 격국 파격 분석
+        gyeokguk_paguk = advanced_gyeokguk_analyzer.check_paguk(
+            gyeokguk.get("type", "일반격"),
+            {
+                "년주": self._convert_pillar_to_ten_gods(year_pillar, day_master),
+                "월주": self._convert_pillar_to_ten_gods(month_pillar, day_master),
+                "일주": self._convert_pillar_to_ten_gods(day_pillar, day_master),
+                "시주": self._convert_pillar_to_ten_gods(hour_pillar, day_master)
+            }
+        )
+
+        # 24. 고급 용신 분석
+        advanced_yongsin_analyzer = AdvancedYongsinAnalyzer(self.ELEMENT_MAP)
+        advanced_yongsin = advanced_yongsin_analyzer.analyze_comprehensive_yongsin(
+            day_master,
+            {
+                "wood": five_elements.wood,
+                "fire": five_elements.fire,
+                "earth": five_elements.earth,
+                "metal": five_elements.metal,
+                "water": five_elements.water
+            },
+            month_pillar.earthly_branch,
+            birth_info.month,
+            element_strength_score,
+            {
+                "년주": self._convert_pillar_to_ten_gods(year_pillar, day_master),
+                "월주": self._convert_pillar_to_ten_gods(month_pillar, day_master),
+                "일주": self._convert_pillar_to_ten_gods(day_pillar, day_master),
+                "시주": self._convert_pillar_to_ten_gods(hour_pillar, day_master)
+            }
+        )
+
+        # 25. 정밀 대운 기점 계산
+        precise_daeun_calc = get_precise_daeun_calculator()
+        birth_datetime = datetime(
+            birth_info.year,
+            birth_info.month,
+            birth_info.day,
+            birth_info.hour,
+            birth_info.minute
+        )
+        precise_daeun_start = precise_daeun_calc.calculate_precise_daeun_start(
+            birth_datetime,
+            year_pillar.heavenly_stem,
+            birth_info.gender or "male"
+        )
+
         return SajuResult(
             birth_info=birth_info,
             year_pillar=year_pillar,
@@ -309,7 +399,13 @@ class SajuCalculator:
             # Phase 1 정확도 개선
             hidden_stems_analysis=hidden_stems_analysis,
             element_strength_analysis=element_strength_analysis,
-            precise_ten_gods=precise_ten_gods
+            precise_ten_gods=precise_ten_gods,
+            # Phase 2 정확도 개선
+            special_gyeokguk=special_gyeokguk,
+            jongguk_type=jongguk_type,
+            gyeokguk_paguk=gyeokguk_paguk,
+            advanced_yongsin=advanced_yongsin,
+            precise_daeun_start=precise_daeun_start
         )
 
     def _calculate_year_pillar(self, year: int, month: int, day: int) -> SajuPillar:
@@ -722,3 +818,41 @@ class SajuCalculator:
         analysis["summary"]["unique_stems"] = list(analysis["summary"]["unique_stems"])
 
         return analysis
+
+    def _convert_pillar_to_ten_gods(self, pillar: SajuPillar, day_master: str) -> Dict:
+        """
+        하나의 기둥(pillar)을 십성 딕셔너리로 변환
+
+        Args:
+            pillar: 사주 기둥
+            day_master: 일간
+
+        Returns:
+            십성 딕셔너리 (예: {"비견": 1, "정재": 1})
+        """
+        result = {}
+
+        # 천간의 십성
+        if pillar.heavenly_stem != day_master:
+            stem_element = self.ELEMENT_MAP.get(pillar.heavenly_stem)
+            day_element = self.ELEMENT_MAP.get(day_master)
+
+            if stem_element and day_element:
+                yin_yang = "same" if self._is_same_yin_yang(day_master, pillar.heavenly_stem) else "diff"
+                ten_god = self.TEN_GODS_MAP.get((day_element, stem_element, yin_yang))
+
+                if ten_god:
+                    result[ten_god] = result.get(ten_god, 0) + 1
+
+        # 지지의 십성 (본기 기준)
+        branch_element = self.ELEMENT_MAP.get(pillar.earthly_branch)
+        day_element = self.ELEMENT_MAP.get(day_master)
+
+        if branch_element and day_element:
+            yin_yang = "same" if self._is_same_yin_yang(day_master, pillar.earthly_branch) else "diff"
+            ten_god = self.TEN_GODS_MAP.get((day_element, branch_element, yin_yang))
+
+            if ten_god:
+                result[ten_god] = result.get(ten_god, 0) + 1
+
+        return result

@@ -132,6 +132,13 @@ class SajuResult(BaseModel):
     element_strength_analysis: Optional[Dict] = Field(None, description="오행 강약 정밀 분석 (득령/통근/투간/생조)")
     precise_ten_gods: Optional[Dict] = Field(None, description="장간을 고려한 정밀 십성 분석")
 
+    # Phase 2 정확도 개선 (v2.1)
+    special_gyeokguk: Optional[Dict] = Field(None, description="특수 격국 분석 (염상격, 곡직격 등)")
+    jongguk_type: Optional[Dict] = Field(None, description="종격 세부 유형 (종강격, 종재격 등)")
+    gyeokguk_paguk: Optional[Dict] = Field(None, description="격국 파격(破格) 분석")
+    advanced_yongsin: Optional[Dict] = Field(None, description="고급 용신 분석 (통관/병약/전왕)")
+    precise_daeun_start: Optional[Dict] = Field(None, description="정밀 대운 기점 계산")
+
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")
     solar_terms: Optional[Dict] = Field(None, description="절기 정보")
