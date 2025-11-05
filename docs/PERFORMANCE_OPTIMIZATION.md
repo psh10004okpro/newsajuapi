@@ -57,37 +57,13 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 
 ---
 
-### 3. 병렬 처리 유틸리티
+### 3. 성능 모니터링 유틸리티
 
 **구현 위치**: `src/utils/performance.py`
 
 #### 제공 기능
 
-1. **비동기 병렬 실행**
-```python
-from src.utils.performance import run_parallel_async
-
-tasks = [
-    calc_twelve_spirits(),
-    calc_divine_spirits(),
-    calc_harmony_conflict()
-]
-results = await run_parallel_async(tasks)
-```
-
-2. **동기 함수 병렬 실행**
-```python
-from src.utils.performance import run_parallel_sync
-
-funcs = [
-    (func1, (arg1,), {}),
-    (func2, (arg2,), {}),
-    (func3, (arg3,), {})
-]
-results = await run_parallel_sync(funcs)
-```
-
-3. **함수 메모이제이션**
+1. **함수 메모이제이션**
 ```python
 from src.utils.performance import memoize
 
@@ -97,7 +73,7 @@ def expensive_calculation(param):
     return result
 ```
 
-4. **LRU 캐시**
+2. **LRU 캐시**
 ```python
 from src.utils.performance import lru_cache
 
@@ -295,6 +271,49 @@ performance_monitor.print_report()
 - 메모리 캐시는 서버 재시작 시 초기화됨
 - Redis 연결 실패 시 자동으로 메모리 캐시로 전환
 - 압축은 CPU 사용량을 약간 증가시킴 (trade-off)
+
+---
+
+## ⚠️ 병렬 처리 벤치마크 결과
+
+### Python GIL 제약으로 인한 병렬화 비효율성
+
+사주 계산의 병렬 처리를 시도했으나, **Python의 GIL(Global Interpreter Lock)**로 인해 CPU-bound 작업의 병렬화가 비효과적임을 확인했습니다.
+
+#### 벤치마크 결과
+
+**단일 사주 계산**:
+- 순차 계산: 4.77ms
+- 병렬 계산: 7.46ms
+- **성능 저하: 56.4%** ⚠️
+
+**배치 계산 (10명)**:
+- 순차 배치: 38.06ms (3.81ms/명)
+- 병렬 배치: 43.60ms (4.36ms/명)
+- **성능 저하: 14.5%** ⚠️
+
+#### 분석
+
+1. **Thread Pool 오버헤드**: 스레드 생성/관리 비용이 계산 시간보다 큼
+2. **빠른 계산 시간**: 각 계산이 이미 매우 빠름 (3-5ms)
+3. **Python GIL**: CPU-bound 작업의 병렬화 제한
+4. **작은 작업 크기**: 병렬화의 이점을 얻기 어려운 작업 크기
+
+#### 권장사항
+
+✅ **효과적인 최적화**:
+- **캐싱**: 95-99% 응답 시간 단축 (가장 효과적)
+- **GZip 압축**: 70-80% 응답 크기 감소
+- **부분 캐싱**: 캐시 히트율 향상
+
+❌ **비효과적인 최적화**:
+- CPU-bound 계산 병렬화 (GIL 제약)
+- Thread Pool 기반 병렬 처리
+- 작은 작업의 병렬화
+
+#### 결론
+
+현재 사주 계산은 이미 충분히 빠르며 (3-5ms/명), **캐싱 전략**이 가장 효과적인 최적화 방법입니다. 병렬 처리는 Python GIL로 인해 오히려 성능을 저하시키므로 적용하지 않습니다.
 
 ---
 
