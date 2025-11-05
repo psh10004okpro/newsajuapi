@@ -6,6 +6,7 @@ FastAPI 서버 진입점
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from dotenv import load_dotenv
 
 from src.api.routes import router
@@ -52,6 +53,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# GZip 압축 미들웨어 (응답 크기 500바이트 이상일 때 압축)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # 라우터 등록
 app.include_router(router, prefix="/api/v1", tags=["사주 API"])

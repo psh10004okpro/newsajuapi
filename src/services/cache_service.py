@@ -162,10 +162,10 @@ class CacheService:
             print(f"캐시 전체 삭제 실패: {str(e)}")
             return False
 
-    def get_cache_key_for_saju(self, year: int, month: int, day: int, hour: int) -> str:
+    def get_cache_key_for_saju(self, year: int, month: int, day: int, hour: int, minute: int = 0) -> str:
         """사주 계산 결과 캐시 키 생성"""
         return self._generate_key("saju", {
-            "year": year, "month": month, "day": day, "hour": hour
+            "year": year, "month": month, "day": day, "hour": hour, "minute": minute
         })
 
     def get_cache_key_for_interpretation(
@@ -178,6 +178,41 @@ class CacheService:
             "detail": detail_level,
             "tone": tone
         })
+
+    def get_cache_key_for_pillar(self, year: int, month: int, day: int) -> str:
+        """기둥(년월일주) 캐시 키 생성 - 시주를 제외한 부분 캐싱"""
+        return self._generate_key("pillar", {
+            "year": year, "month": month, "day": day
+        })
+
+    def get_cache_key_for_spirits(self, year_stem: str, month_stem: str,
+                                   day_pillar: str, birth_month: int) -> str:
+        """신살 캐시 키 생성"""
+        return self._generate_key("spirits", {
+            "year_stem": year_stem,
+            "month_stem": month_stem,
+            "day_pillar": day_pillar,
+            "birth_month": birth_month
+        })
+
+    async def get_stats(self) -> dict:
+        """캐시 통계 조회"""
+        if self.cache_backend == "redis" and self.redis_client:
+            try:
+                info = self.redis_client.info("stats")
+                return {
+                    "backend": "redis",
+                    "keyspace_hits": info.get("keyspace_hits", 0),
+                    "keyspace_misses": info.get("keyspace_misses", 0),
+                    "total_keys": self.redis_client.dbsize()
+                }
+            except:
+                return {"backend": "redis", "error": "통계 조회 실패"}
+        else:
+            return {
+                "backend": "memory",
+                "total_keys": len(self.memory_cache)
+            }
 
     async def close(self):
         """리소스 정리"""
