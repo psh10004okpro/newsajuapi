@@ -127,6 +127,11 @@ class SajuResult(BaseModel):
     gyeokguk: Optional[Dict] = Field(None, description="격국 (格局) 판단")
     yongsin: Optional[Dict] = Field(None, description="용신 (用神) 분석")
 
+    # Phase 1 정확도 개선 (v2.0)
+    hidden_stems_analysis: Optional[Dict] = Field(None, description="지지 장간(藏干) 상세 분석")
+    element_strength_analysis: Optional[Dict] = Field(None, description="오행 강약 정밀 분석 (득령/통근/투간/생조)")
+    precise_ten_gods: Optional[Dict] = Field(None, description="장간을 고려한 정밀 십성 분석")
+
     # 추가 정보
     lunar_date: Optional[Dict] = Field(None, description="음력 날짜 정보")
     solar_terms: Optional[Dict] = Field(None, description="절기 정보")

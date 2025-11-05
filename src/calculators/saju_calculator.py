@@ -17,8 +17,16 @@ from src.data.divine_spirits import check_divine_spirits
 from src.data.sixty_jiazi import get_jiazi_info
 from src.data.harmony_conflict import check_harmony_conflict
 from src.data.gongmang import check_gongmang_in_saju
+from src.data.hidden_stems import (
+    get_hidden_stems,
+    calculate_stem_power_in_branch,
+    get_branch_seasonal_strength,
+    analyze_branch_composition
+)
 from src.calculators.gyeokguk_analyzer import GyeokgukAnalyzer
 from src.calculators.yongsin_analyzer import YongsinAnalyzer
+from src.calculators.enhanced_calculator import EnhancedSajuCalculator
+from src.calculators.precise_solar_terms import get_precise_solar_term_calculator
 
 
 class SajuCalculator:
@@ -256,6 +264,29 @@ class SajuCalculator:
             birth_info.month
         )
 
+        # ========== Phase 1 정확도 개선 (v2.0) ==========
+
+        # 18. 지지 장간 상세 분석
+        hidden_stems_analysis = self._analyze_hidden_stems(
+            [year_pillar, month_pillar, day_pillar, hour_pillar]
+        )
+
+        # 19. 오행 강약 정밀 계산
+        enhanced_calc = EnhancedSajuCalculator()
+        element_strength_analysis = enhanced_calc.calculate_precise_element_strength(
+            day_master,
+            [year_pillar, month_pillar, day_pillar, hour_pillar],
+            birth_info.month,
+            self.ELEMENT_MAP
+        )
+
+        # 20. 장간을 고려한 정밀 십성
+        precise_ten_gods = enhanced_calc.calculate_precise_ten_gods(
+            day_master,
+            [year_pillar, month_pillar, day_pillar, hour_pillar],
+            self.ELEMENT_MAP
+        )
+
         return SajuResult(
             birth_info=birth_info,
             year_pillar=year_pillar,
@@ -274,19 +305,26 @@ class SajuCalculator:
             harmony_conflict=harmony_conflict,
             gongmang=gongmang,
             gyeokguk=gyeokguk,
-            yongsin=yongsin
+            yongsin=yongsin,
+            # Phase 1 정확도 개선
+            hidden_stems_analysis=hidden_stems_analysis,
+            element_strength_analysis=element_strength_analysis,
+            precise_ten_gods=precise_ten_gods
         )
 
     def _calculate_year_pillar(self, year: int, month: int, day: int) -> SajuPillar:
         """
-        년주 계산
-        입춘(2월 4일경) 이전이면 전년도로 계산
+        년주 계산 (정밀 입춘 기준)
+        입춘 이전이면 전년도로 계산
+
+        Phase 1 개선: PyMeeus로 정확한 입춘 시각 계산
         """
-        # 입춘 확인 (간단히 2월 4일 기준)
-        # 실제로는 solar_terms 데이터에서 정확한 입춘 시각을 확인해야 함
-        saju_year = year
-        if month < 2 or (month == 2 and day < 4):
-            saju_year = year - 1
+        # 정밀 절기 계산기 사용
+        solar_calc = get_precise_solar_term_calculator()
+        birth_date = datetime(year, month, day)
+
+        # 정확한 입춘 시각 확인
+        saju_year = solar_calc.get_saju_year(birth_date)
 
         # 갑자년은 1984년 (갑자 = 천간[0] + 지지[0])
         # 천간은 10년 주기, 지지는 12년 주기
@@ -629,3 +667,58 @@ class SajuCalculator:
             result["시지"] = hour_spirit
 
         return result
+
+    def _analyze_hidden_stems(self, pillars: List[SajuPillar]) -> Dict:
+        """
+        지지 장간 상세 분석
+
+        Args:
+            pillars: [년주, 월주, 일주, 시주]
+
+        Returns:
+            장간 상세 분석 정보
+        """
+        position_names = ["년지", "월지", "일지", "시지"]
+        analysis = {
+            "pillars": [],
+            "summary": {
+                "total_hidden_stems": 0,
+                "unique_stems": set(),
+                "elements_count": {}
+            }
+        }
+
+        for idx, pillar in enumerate(pillars):
+            branch = pillar.earthly_branch
+            hidden_info = get_hidden_stems(branch)
+            composition = analyze_branch_composition(branch)
+
+            pillar_analysis = {
+                "position": position_names[idx],
+                "branch": branch,
+                "heavenly_stem": pillar.heavenly_stem,
+                "본기": hidden_info["본기"],
+                "중기": hidden_info["중기"],
+                "여기": hidden_info["여기"],
+                "all_hidden_stems": hidden_info["all"],
+                "주오행": composition["주오행"],
+                "모든오행": composition["모든오행"],
+                "설명": hidden_info["description"]
+            }
+
+            analysis["pillars"].append(pillar_analysis)
+
+            # 통계 수집
+            for stem in hidden_info["all"]:
+                analysis["summary"]["unique_stems"].add(stem)
+                element = self.ELEMENT_MAP.get(stem)
+                if element:
+                    analysis["summary"]["elements_count"][element] = \
+                        analysis["summary"]["elements_count"].get(element, 0) + 1
+
+            analysis["summary"]["total_hidden_stems"] += len(hidden_info["all"])
+
+        # set을 list로 변환
+        analysis["summary"]["unique_stems"] = list(analysis["summary"]["unique_stems"])
+
+        return analysis
